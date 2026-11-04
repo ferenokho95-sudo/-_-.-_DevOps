@@ -1,0 +1,130 @@
+{
+  "name": "uptime-monitoring",
+  "networks": {
+    "metrics": {
+      "external": true,
+      "name": "uptime-metrics"
+    }
+  },
+  "volumes": {
+    "prom-data": {},
+    "grafana-data": {},
+    "config-prometheus": {
+      "external": true,
+      "name": "uptime-config-prometheus"
+    },
+    "config-blackbox": {
+      "external": true,
+      "name": "uptime-config-blackbox"
+    },
+    "config-mysql": {
+      "external": true,
+      "name": "uptime-config-mysql"
+    }
+  },
+  "services": {
+    "prometheus": {
+      "image": "prom/prometheus:v3.2.1",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "ports": [
+        "127.0.0.1:9090:9090"
+      ],
+      "command": [
+        "--config.file=/etc/platform/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+        "--storage.tsdb.retention.time=15d"
+      ],
+      "volumes": [
+        "prom-data:/prometheus",
+        "config-prometheus:/etc/platform:ro"
+      ]
+    },
+    "grafana": {
+      "image": "grafana/grafana:11.6.0",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "ports": [
+        "127.0.0.1:3000:3000"
+      ],
+      "environment": {
+        "GF_SECURITY_ADMIN_USER": "admin",
+        "GF_SECURITY_ADMIN_PASSWORD": "${GRAFANA_PASSWORD:?required}",
+        "GF_USERS_ALLOW_SIGN_UP": "false",
+        "GF_AUTH_ANONYMOUS_ENABLED": "false"
+      },
+      "volumes": [
+        "grafana-data:/var/lib/grafana"
+      ]
+    },
+    "blackbox": {
+      "image": "prom/blackbox-exporter:v0.26.0",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "command": [
+        "--config.file=/etc/platform/blackbox.yml"
+      ],
+      "volumes": [
+        "config-blackbox:/etc/platform:ro"
+      ]
+    },
+    "mysqld": {
+      "image": "prom/mysqld-exporter:v0.17.2",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "command": [
+        "--config.my-cnf=/etc/platform/mysql.cnf",
+        "--mysqld.address=db:3306"
+      ],
+      "volumes": [
+        "config-mysql:/etc/platform:ro"
+      ]
+    },
+    "node": {
+      "image": "prom/node-exporter:v1.9.0",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "pid": "host",
+      "command": [
+        "--path.rootfs=/host",
+        "--path.procfs=/host/proc",
+        "--path.sysfs=/host/sys"
+      ],
+      "volumes": [
+        "/:/host:ro"
+      ]
+    },
+    "cadvisor": {
+      "image": "ghcr.io/google/cadvisor:0.55.1",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "privileged": true,
+      "pid": "host",
+      "cgroup": "host",
+      "command": [
+        "--containerd=/proc/1/root/run/containerd/containerd.sock"
+      ],
+      "devices": [
+        "/dev/kmsg:/dev/kmsg"
+      ],
+      "volumes": [
+        "/:/rootfs:ro",
+        "/var/run:/var/run:ro",
+        "/var/lib/docker:/var/lib/docker:ro",
+        "/dev/disk:/dev/disk:ro"
+      ]
+    }
+  }
+}

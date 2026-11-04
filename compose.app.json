@@ -1,0 +1,86 @@
+{
+  "name": "uptime-app",
+  "networks": {
+    "metrics": {
+      "external": true,
+      "name": "uptime-metrics"
+    }
+  },
+  "services": {
+    "db": {
+      "image": "mariadb:11.4.5",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "environment": {
+        "MARIADB_ROOT_PASSWORD": "${DB_ROOT_PASSWORD:?required}",
+        "MARIADB_DATABASE": "kuma",
+        "MARIADB_USER": "kuma",
+        "MARIADB_PASSWORD": "${DB_PASSWORD:?required}"
+      },
+      "volumes": [
+        "db-data:/var/lib/mysql",
+        "config-exporter-init:/docker-entrypoint-initdb.d:ro"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "healthcheck.sh",
+          "--connect",
+          "--innodb_initialized"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "30s"
+      }
+    },
+    "kuma": {
+      "image": "louislam/uptime-kuma:2.0.2",
+      "restart": "unless-stopped",
+      "networks": [
+        "metrics"
+      ],
+      "ports": [
+        "127.0.0.1:3001:3001"
+      ],
+      "volumes": [
+        "kuma-data:/app/data",
+        "config-db-config:/platform-config:ro"
+      ],
+      "command": [
+        "sh",
+        "-ec",
+        "cp /platform-config/db-config.json /app/data/db-config.json; exec node server/server.js"
+      ],
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "extra/healthcheck"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 40,
+        "start_period": "60s"
+      }
+    }
+  },
+  "volumes": {
+    "db-data": {},
+    "kuma-data": {},
+    "config-db-config": {
+      "external": true,
+      "name": "uptime-config-db-config"
+    },
+    "config-exporter-init": {
+      "external": true,
+      "name": "uptime-config-exporter-init"
+    }
+  }
+}

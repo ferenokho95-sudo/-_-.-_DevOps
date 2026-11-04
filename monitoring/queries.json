@@ -1,0 +1,5 @@
+{
+  "db": "max((mysql_up{job=\"mariadb\"} or vector(0)))",
+  "kuma": "max((probe_success{job=\"http\",instance=\"http://kuma:3001\"} or vector(0)))",
+  "health": "(max((mysql_up{job=\"mariadb\"} or vector(0)))) * (max((probe_success{job=\"http\",instance=\"http://kuma:3001\"} or vector(0))))"
+}
